@@ -92,6 +92,11 @@ def install(wheel, revision):
         metadata = BytesParser().parsebytes(archive.read(metadata_paths[0]))
         if metadata["Name"].replace("-", "_") != APP or metadata["Version"] != VERSION:
             raise RuntimeError("Wheel is not the reviewed Smarty fork version")
+        for name in archive.namelist():
+            if name.endswith((".tflite", ".onnx", ".flac", ".pt")):
+                with archive.open(name) as asset:
+                    if asset.read(64).startswith(b"version https://git-lfs.github.com/spec/"):
+                        raise RuntimeError("Unresolved Git LFS asset; run git lfs pull before building: " + name)
         hashes = {
             name: hashlib.sha256(archive.read(name)).hexdigest()
             for name in archive.namelist()

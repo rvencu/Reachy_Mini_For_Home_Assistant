@@ -4,6 +4,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -54,6 +55,21 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "validated"):
                 installer.install(Path("not-opened.whl"), "a" * 40)
         stop.assert_not_called()
+
+    def test_lfs_pointer_model_is_rejected_before_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wheel = Path(directory) / "invalid.whl"
+            with zipfile.ZipFile(wheel, "w") as archive:
+                archive.writestr(
+                    installer.APP + "-" + installer.VERSION + ".dist-info/METADATA",
+                    "Name: " + installer.APP + "\nVersion: " + installer.VERSION + "\n",
+                )
+                archive.writestr(installer.APP + "/wakewords/test.tflite", "version https://git-lfs.github.com/spec/v1\n")
+            with patch.object(installer.importlib.metadata, "version", return_value=installer.SDK), \
+                    patch.object(installer, "stop_voice_app") as stop:
+                with self.assertRaisesRegex(RuntimeError, "Unresolved Git LFS"):
+                    installer.install(wheel, "a" * 40)
+            stop.assert_not_called()
 
 
 if __name__ == "__main__":

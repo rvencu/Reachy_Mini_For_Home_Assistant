@@ -45,8 +45,8 @@ timeout/cancellation, Sendspin, missing robot and flush errors. The fake audio
 backend models the SDK's shared-pipeline semantics; seven tests fail on upstream
 1.0.7 and all pass with the correction. They do not replace a physical microphone,
 HA transcription and speaker test. The fork's GitHub workflow runs this suite.
-Three installer tests check offline restoration, rejection of an unvalidated SDK,
-and refusal to stop a different active robot app.
+Four installer tests check offline restoration, rejection of an unvalidated SDK
+or unresolved Git LFS models, and refusal to stop a different active robot app.
 
 ## Install on the robot
 
@@ -56,6 +56,7 @@ review and select a **full commit hash** on `smarty`, then run on the robot:
 
 ```sh
 git checkout --detach <reviewed-commit>
+git lfs pull
 /venvs/apps_venv/bin/python -m unittest discover -s tests -p test_playback_capture.py -v
 /venvs/apps_venv/bin/python -m pip wheel --no-deps --no-build-isolation --no-index --wheel-dir dist .
 /venvs/apps_venv/bin/python scripts/install_wheel.py \
@@ -63,7 +64,9 @@ git checkout --detach <reviewed-commit>
   --revision "$(git rev-parse HEAD)"
 ```
 
-The installed app environment supplies the build tools; no SDK or runtime
+The checkout needs Git LFS for wake-word models and audio assets. The installer
+rejects wheels containing LFS pointer text instead of these files. The installed
+app environment supplies the build tools; no SDK or runtime
 dependency upgrades are requested. If build tooling is missing, stop and prepare
 a wheel separately rather than upgrading the robot's shared environment. The
 installer accepts only SDK 1.11.0 and app 1.0.7 or this fork version. It backs up the
