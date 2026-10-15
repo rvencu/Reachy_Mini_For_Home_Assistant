@@ -44,8 +44,20 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(json.loads((root / "current.json").read_text())["restored_version"], "1.0.7")
 
     def test_different_active_app_is_never_stopped(self):
-        with patch.object(installer, "api", return_value={"name": "another_app", "state": "running"}) as api:
+        with patch.object(installer, "api", return_value={"info": {"name": "another_app"}, "state": "running"}) as api:
             with self.assertRaisesRegex(RuntimeError, "Another app is active"):
+                installer.stop_voice_app()
+        api.assert_called_once_with("current-app-status")
+
+    def test_active_voice_app_is_stopped_using_nested_sdk_status(self):
+        with patch.object(installer, "api", side_effect=[{"info": {"name": installer.APP}, "state": "running"}, None]) as api:
+            installer.stop_voice_app()
+        self.assertEqual(api.call_count, 2)
+        api.assert_called_with("stop-current-app", post=True)
+
+    def test_unknown_status_is_rejected_before_changes(self):
+        with patch.object(installer, "api", return_value={"name": installer.APP, "state": "running"}) as api:
+            with self.assertRaisesRegex(RuntimeError, "Unrecognized robot app status"):
                 installer.stop_voice_app()
         api.assert_called_once_with("current-app-status")
 

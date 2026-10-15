@@ -45,8 +45,9 @@ timeout/cancellation, Sendspin, missing robot and flush errors. The fake audio
 backend models the SDK's shared-pipeline semantics; seven tests fail on upstream
 1.0.7 and all pass with the correction. They do not replace a physical microphone,
 HA transcription and speaker test. The fork's GitHub workflow runs this suite.
-Four installer tests check offline restoration, rejection of an unvalidated SDK
-or unresolved Git LFS models, and refusal to stop a different active robot app.
+Six installer tests check offline restoration, rejection of an unvalidated SDK
+or unresolved Git LFS models, the SDK's nested app status, and refusal to stop a
+different active robot app or act on an unrecognized status response.
 
 ## Install on the robot
 

@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 import zipfile
 from datetime import UTC, datetime
@@ -25,15 +26,24 @@ def api(path, *, post=False):
         data=b"" if post else None,
         method="POST" if post else "GET",
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError("Robot app API rejected " + path + ": " + error.read().decode()) from error
 
 
 def stop_voice_app():
     current = api("current-app-status")
-    if current and current.get("name") not in (None, APP):
+    if current is None:
+        return
+    # SDK AppStatus nests the application identity under `info`.
+    name = current.get("info", {}).get("name")
+    if not name:
+        raise RuntimeError("Unrecognized robot app status; refusing to change packages")
+    if name != APP:
         raise RuntimeError("Another app is active; leave it untouched and stop it explicitly first")
-    if current and current.get("name") == APP and current.get("state") != "stopped":
+    if current.get("state") != "stopped":
         api("stop-current-app", post=True)
 
 
