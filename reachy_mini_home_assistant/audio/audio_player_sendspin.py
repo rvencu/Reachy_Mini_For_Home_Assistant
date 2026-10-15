@@ -197,10 +197,7 @@ class AudioPlayerSendspinMixin(AudioPlayerSwayMixin):
         except Exception:
             _LOGGER.debug("Failed to clear output buffer", exc_info=True)
         if self._sendspin_playback_started:
-            try:
-                self.reachy_mini.media.stop_playing()
-            except Exception:
-                _LOGGER.debug("Failed to stop Sendspin playback", exc_info=True)
+            self._flush_player_output()
         self._sendspin_playback_started = False
 
     def _clear_sendspin_queue(self) -> None:

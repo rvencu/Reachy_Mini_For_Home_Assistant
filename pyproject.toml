@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reachy_mini_home_assistant"
-version = "1.0.7"
+version = "1.0.7+smarty.1"
 description = "Deep integration of Reachy Mini robot with Home Assistant"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -55,6 +55,10 @@ dependencies = [
 ]
 keywords = ["reachy-mini-app", "reachy-mini", "home-assistant", "voice-assistant"]
 
+[project.urls]
+Repository = "https://github.com/rvencu/Reachy_Mini_For_Home_Assistant"
+Upstream = "https://github.com/ha-china/Reachy_Mini_For_Home_Assistant"
+
 [project.entry-points."reachy_mini_apps"]
 reachy_mini_home_assistant = "reachy_mini_home_assistant.main:ReachyMiniHaVoice"
 
@@ -64,6 +68,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["reachy_mini_home_assistant*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.flac", "*.md", "*.tflite", "*.onnx", "*.pt"]

@@ -144,12 +144,25 @@ class AudioPlayerPlaybackMixin(
             except Exception:
                 _LOGGER.exception("Unexpected error running done callback")
 
+    def _flush_player_output(self) -> None:
+        """Flush output without stopping the shared microphone/playback pipeline.
+
+        SDK 1.11's stop_playing() NULLs the entire GStreamer pipeline. A wake
+        sound then plays through a separate playbin while microphone capture
+        stays stopped. Use the SDK's output flush instead (upstream develop
+        4407b7ee1673f6436f9161b923a8f8688cf4a992).
+        """
+        audio = getattr(self.reachy_mini.media, "audio", None) if self.reachy_mini is not None else None
+        if audio is None:
+            return
+        try:
+            audio.clear_player()
+        except Exception:
+            _LOGGER.debug("Failed to flush player output", exc_info=True)
+
     def pause(self) -> None:
         self._stop_flag.set()
-        try:
-            self.reachy_mini.media.stop_playing()
-        except Exception:
-            pass
+        self._flush_player_output()
         self.is_playing = False
 
     def resume_playback(self) -> None:
@@ -159,10 +172,7 @@ class AudioPlayerPlaybackMixin(
 
     def stop(self) -> None:
         self._stop_flag.set()
-        try:
-            self.reachy_mini.media.stop_playing()
-        except Exception:
-            pass
+        self._flush_player_output()
         if self._playback_thread and self._playback_thread.is_alive():
             try:
                 self._playback_thread.join(timeout=2.0)
