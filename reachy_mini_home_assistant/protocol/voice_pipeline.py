@@ -6,6 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from aioesphomeapi.api_pb2 import VoiceAssistantRequest  # type: ignore[attr-defined]
 from aioesphomeapi.model import VoiceAssistantEventType, VoiceAssistantTimerEventType
 
 from ..core.util import call_all
@@ -83,6 +84,9 @@ def handle_timer_event(
 
 
 def stop(protocol: "VoiceSatelliteProtocol") -> None:
+    if protocol._pipeline_active and protocol._pending_voice_request is None:
+        # End the remote stream too; otherwise HA waits for its STT timeout.
+        protocol.send_messages([VoiceAssistantRequest(start=False)])
     protocol._pipeline_active = False
     protocol._is_streaming_audio = False
     protocol._continue_conversation = False

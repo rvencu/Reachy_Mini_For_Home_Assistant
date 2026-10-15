@@ -9,7 +9,7 @@ and each satellite's permissions.
 ## Baseline and fix
 
 - Baseline: upstream `main`, commit `819af765637f68cf36357ff5e5e4cbcbf06ec8e4`, version 1.0.7.
-- Maintained branch: `smarty`; fork version: `1.0.7+smarty.1`.
+- Maintained branch: `smarty`; fork version: `1.0.7+smarty.2`.
 - Runtime checked: Reachy Mini Wireless, SDK **1.11.0**, Python 3.12.
 - Symptom: the first wake word is recognized, the robot raises its head and keeps
   animating, but HA receives no usable command audio; later wake words stop working.
@@ -19,8 +19,17 @@ to NULL. The app called it before playing the wake sound. The sound uses a separ
 playbin, so its completion can start an HA request while capture remains stopped.
 The fork uses `media.audio.clear_player()` to flush queued output while retaining
 capture. It covers stop/pause, local-file cancellation/timeouts and Sendspin stop.
-No model, sensitivity, permissions, motion configuration or speech service changes
-are included.
+No model weights, sensitivity, permissions, motion configuration or speech service
+changes are included.
+
+After the capture fix, HA received speech but ordinary commands triggered the
+stop detector. The old code armed that detector during every live voice pipeline,
+including the wake chime and microphone streaming, and reused its previous scores.
+Version `smarty.2` restricts it to explicitly armed TTS/announcement playback and
+timer ringing. It protects pending wake requests and microphone capture even if
+playback flags are stale. The audio thread resets the model before each new
+playback interval. A stop during an already-started voice run also tells HA to
+end its stream instead of leaving it waiting for the transcription timeout.
 
 The playback/local-file correction is a backport of the approach in
 [upstream develop at 4407b7e](https://github.com/ha-china/Reachy_Mini_For_Home_Assistant/blob/4407b7ee1673f6436f9161b923a8f8688cf4a992/reachy_mini_home_assistant/audio/audio_player_playback.py).
@@ -37,6 +46,7 @@ Use Python 3.12 or newer, with NumPy and requests installed:
 
 ```sh
 python -m unittest discover -s tests -p test_playback_capture.py -v
+python -m unittest discover -s tests -p test_stop_word.py -v
 python -m unittest discover -s tests -p test_install_wheel.py -v
 ```
 
@@ -48,6 +58,10 @@ HA transcription and speaker test. The fork's GitHub workflow runs this suite.
 Six installer tests check offline restoration, rejection of an unvalidated SDK
 or unresolved Git LFS models, the SDK's nested app status, and refusal to stop a
 different active robot app or act on an unrecognized status response.
+Eight stop-word tests cover repeated commands, stale playback flags and scores,
+real playback interruption, timers, mute and disconnects. In the robot's full
+app environment, also run `python -m unittest discover -s tests -p test_command_runtime.py -v`
+to check the HA cancellation message and existing motion behavior.
 
 ## Install on the robot
 
@@ -59,9 +73,11 @@ review and select a **full commit hash** on `smarty`, then run on the robot:
 git checkout --detach <reviewed-commit>
 git lfs pull
 /venvs/apps_venv/bin/python -m unittest discover -s tests -p test_playback_capture.py -v
+/venvs/apps_venv/bin/python -m unittest discover -s tests -p test_stop_word.py -v
+/venvs/apps_venv/bin/python -m unittest discover -s tests -p test_command_runtime.py -v
 /venvs/apps_venv/bin/python -m pip wheel --no-deps --no-build-isolation --no-index --wheel-dir dist .
 /venvs/apps_venv/bin/python scripts/install_wheel.py \
-  --wheel dist/reachy_mini_home_assistant-1.0.7+smarty.1-py3-none-any.whl \
+  --wheel dist/reachy_mini_home_assistant-1.0.7+smarty.2-py3-none-any.whl \
   --revision "$(git rev-parse HEAD)"
 ```
 
@@ -70,7 +86,7 @@ rejects wheels containing LFS pointer text instead of these files. The installed
 app environment supplies the build tools; no SDK or runtime
 dependency upgrades are requested. If build tooling is missing, stop and prepare
 a wheel separately rather than upgrading the robot's shared environment. The
-installer accepts only SDK 1.11.0 and app 1.0.7 or this fork version. It backs up the
+installer accepts only SDK 1.11.0 and app 1.0.7, `smarty.1` or this fork version. It backs up the
 old package and metadata under `~/.local/share/reachy-smarty/backups/`, stops only
 this voice app, installs the wheel without fetching dependencies, verifies every
 Python source file against the wheel, and starts the app. An installation failure

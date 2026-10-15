@@ -2,6 +2,9 @@ import re
 import types
 import unittest
 from pathlib import Path
+from unittest.mock import Mock
+
+from aioesphomeapi.api_pb2 import VoiceAssistantRequest
 
 from reachy_mini_home_assistant.protocol import voice_pipeline
 
@@ -46,7 +49,25 @@ class VoicePipelineStopTests(unittest.TestCase):
         protocol._set_stop_word_active = lambda active: protocol._set_stop_word_active_calls.append(active)
         protocol._tts_finished = lambda: setattr(protocol, "_tts_finished_calls", protocol._tts_finished_calls + 1)
         protocol.unduck = lambda: None
+        protocol.send_messages = Mock()
         return protocol
+
+    def test_stop_notifies_ha_to_finish_an_existing_stream(self):
+        protocol = self._make_protocol()
+        protocol._pending_voice_request = None
+
+        voice_pipeline.stop(protocol)
+
+        protocol.send_messages.assert_called_once_with([VoiceAssistantRequest(start=False)])
+        self.assertFalse(protocol._is_streaming_audio)
+
+    def test_stop_during_wake_chime_does_not_cancel_an_unstarted_ha_run(self):
+        protocol = self._make_protocol()
+
+        voice_pipeline.stop(protocol)
+
+        protocol.send_messages.assert_not_called()
+        self.assertIsNone(protocol._pending_voice_request)
 
     def test_stop_tts_finishes_session_immediately(self):
         protocol = self._make_protocol()
@@ -105,24 +126,3 @@ class IdleRestPoseSourceTests(unittest.TestCase):
         self.assertIn("target_x=self._idle_rest_x_m", content)
         self.assertIn("target_y=self._idle_rest_y_m", content)
         self.assertIn("target_z=self._idle_rest_z_m", content)
-
-
-class StopWordSourceTests(unittest.TestCase):
-    def test_stop_word_uses_runtime_context_not_active_wakeword_membership(self):
-        path = Path("reachy_mini_home_assistant/voice_assistant.py")
-        content = path.read_text(encoding="utf-8")
-
-        self.assertIn("stop_context_active = (", content)
-        self.assertIn("self._state.tts_player.is_playing", content)
-        self.assertIn("self._state.satellite._pipeline_active", content)
-        self.assertIn("self._state.satellite._timer_finished", content)
-        self.assertIn("self._state.active_wake_words.add(self._state.stop_word.id)", content)
-        self.assertIn("self._state.stop_word.is_active = True", content)
-        self.assertNotIn("stop_armed = self._state.stop_word.id in self._state.active_wake_words", content)
-
-    def test_stop_word_inference_only_runs_in_interruptible_context(self):
-        path = Path("reachy_mini_home_assistant/voice_assistant.py")
-        content = path.read_text(encoding="utf-8")
-
-        self.assertIn("AUDIO_BLOCK_SIZE = 512", content)
-        self.assertIn("if stop_context_active:", content)

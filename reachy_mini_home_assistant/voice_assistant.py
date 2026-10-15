@@ -23,6 +23,7 @@ from reachy_mini import ReachyMini
 
 from .audio.audio_player import AudioPlayer
 from .audio.local_audio_player import LocalAudioPlayer
+from .audio.stop_word import StopWordDetector
 from .core import Config
 from .core.util import get_mac
 from .models import Preferences, ServerState
@@ -55,6 +56,7 @@ class AudioProcessingContext:
     oww_inputs: list = field(default_factory=list)
     has_oww: bool = False
     last_active: float | None = None
+    stop_word_detector: StopWordDetector = field(default_factory=StopWordDetector)
 
 
 # Audio chunk size for consistent streaming
@@ -974,16 +976,7 @@ class VoiceAssistantService:
         # Detect wake words
         self._detect_wake_words(ctx)
 
-        stop_context_active = (
-            self._state.tts_player.is_playing
-            or self._state.satellite._pipeline_active
-            or self._state.satellite._timer_finished
-        )
-
-        # Stop-word inference is only useful while there is active playback or
-        # a live voice pipeline/timer to interrupt.
-        if stop_context_active:
-            self._detect_stop_word(ctx)
+        ctx.stop_word_detector.process(self._state, ctx.micro_inputs)
 
     def _process_features(self, ctx: AudioProcessingContext, audio_chunk: bytes) -> None:
         """Process audio features for wake word detection."""
@@ -1025,35 +1018,3 @@ class VoiceAssistantService:
                     # Face tracking will handle looking at user automatically
                     self._motion.on_wakeup()
                     ctx.last_active = now
-
-    def _detect_stop_word(self, ctx: AudioProcessingContext) -> None:
-        """Detect stop word in the processed audio features."""
-        if not self._state.stop_word:
-            _LOGGER.warning("Stop word model not loaded")
-            return
-
-        stop_context_active = (
-            self._state.tts_player.is_playing
-            or self._state.satellite._pipeline_active
-            or self._state.satellite._timer_finished
-        )
-
-        # Keep the stop model armed whenever playback/pipeline interruption is
-        # meaningful. The active wake-word membership and model activation can
-        # drift apart across HA event transitions, so re-arm both here.
-        if stop_context_active:
-            self._state.active_wake_words.add(self._state.stop_word.id)
-            try:
-                self._state.stop_word.is_active = True
-            except Exception:
-                pass
-
-        stopped = False
-        for micro_input in ctx.micro_inputs:
-            if self._state.stop_word.process_streaming(micro_input):
-                stopped = True
-                break  # Stop at first detection
-
-        if stopped and stop_context_active and (not self._state.is_muted):
-            _LOGGER.info("Stop word detected - stopping playback")
-            self._state.satellite.stop()

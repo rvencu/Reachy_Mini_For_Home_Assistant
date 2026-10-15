@@ -17,7 +17,7 @@ tags:
 # Reachy Mini for Home Assistant — Smarty fork
 
 Maintained at [rvencu/Reachy_Mini_For_Home_Assistant](https://github.com/rvencu/Reachy_Mini_For_Home_Assistant),
-on the `smarty` branch, based on upstream 1.0.7. Version **1.0.7+smarty.1** keeps
+on the `smarty` branch, based on upstream 1.0.7. Version **1.0.7+smarty.2** keeps
 microphone capture running when the app plays its wake-up sound or stops playback
 with Reachy SDK 1.11.0.
 

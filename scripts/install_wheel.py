@@ -16,7 +16,7 @@ from pathlib import Path
 
 APP = "reachy_mini_home_assistant"
 SDK = "1.11.0"
-VERSION = "1.0.7+smarty.1"
+VERSION = "1.0.7+smarty.2"
 VENV = Path("/venvs/apps_venv")
 
 
@@ -116,7 +116,7 @@ def install(wheel, revision):
         raise RuntimeError("Wheel has no application source")
     site, package, metadata_path = installed_paths()
     previous = importlib.metadata.version(APP)
-    if previous not in ("1.0.7", VERSION):
+    if previous not in ("1.0.7", "1.0.7+smarty.1", VERSION):
         raise RuntimeError("Unexpected installed app version: " + previous)
     backup = Path.home() / ".local/share/reachy-smarty/backups" / datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     backup.mkdir(parents=True, mode=0o700)
